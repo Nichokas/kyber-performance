@@ -4,6 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.97"
+chacha20poly1305 = "0.10.1"
 kychacha_crypto = "1.1.6"
 rsa = "0.9.8"
 x25519-dalek = "2.0.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "kyber_bench"
+harness = false
