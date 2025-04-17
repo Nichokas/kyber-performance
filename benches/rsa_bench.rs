@@ -31,7 +31,12 @@ fn criterion_benchmark(c: &mut Criterion) {
 
 criterion_group! {
     name = rsa;
-    config = Criterion::default().measurement_time(std::time::Duration::from_secs(1800));
+    config = Criterion::default()
+        .sample_size(1000)
+        .warm_up_time(std::time::Duration::from_secs(5))
+        .measurement_time(std::time::Duration::from_secs(30))
+        .confidence_level(0.99)
+        .with_plots();
     targets = criterion_benchmark
 }
 criterion_main!(rsa);
