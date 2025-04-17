@@ -20,7 +20,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("Generate RSA keypair", |b| b.iter(generate_keypair));
 
     let rsa = Rsa::generate(7680).unwrap();
-    c.bench_function("Kyber Encryption and Decryption (and key exchange)", |b| {
+    c.bench_function("RSA Encryption and Decryption", |b| {
         b.iter(|| round_trip(black_box(rsa.clone())))
     });
 }
