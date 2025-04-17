@@ -11,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let server_kp = generate_keypair().unwrap();
 
     c.bench_function("Generate kyber keypair", |b| b.iter(generate_keypair));
-    c.bench_function("Encryption and Decryption (and key exchange)", |b| b.iter(|| round_trip(black_box(server_kp))));
+    c.bench_function("Kyber Encryption and Decryption (and key exchange)", |b| b.iter(|| round_trip(black_box(server_kp))));
 }
 
 criterion_group!(kyber, criterion_benchmark);
