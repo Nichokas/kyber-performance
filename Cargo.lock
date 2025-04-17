@@ -336,6 +336,7 @@ dependencies = [
  "openssl",
  "rand",
  "serde",
+ "serde_bytes",
  "sha2",
 ]
 
