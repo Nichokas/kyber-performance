@@ -6,9 +6,13 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.97"
 chacha20poly1305 = "0.10.1"
-kychacha_crypto = "1.1.6"
-x25519-dalek = "2.0.1"
 openssl = { version = "0.10.72", features = ["vendored"] }
+rand = "0.8.5"
+bincode = { version = "2.0.1", features = ["serde"] }
+serde = { version = "1.0.219", features = ["derive"] }
+hkdf = "0.12.4"
+sha2 = "0.10.8"
+kychacha_crypto = "2.0.2"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -19,4 +23,8 @@ harness = false
 
 [[bench]]
 name = "rsa_bench"
+harness = false
+
+[[bench]]
+name = "dh25519_bench"
 harness = false
