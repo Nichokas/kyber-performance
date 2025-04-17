@@ -11,8 +11,12 @@ fn criterion_benchmark(c: &mut Criterion) {
     let server_kp = generate_keypair().unwrap();
 
     c.bench_function("Generate kyber keypair", |b| b.iter(generate_keypair));
-    c.bench_function("Kyber Encryption and Decryption (and key exchange)", |b| b.iter(|| round_trip(black_box(server_kp))));
+    c.bench_function("Kyber Encryption and Decryption (also key exchange and serializations(bincode))", |b| b.iter(|| round_trip(black_box(server_kp))));
 }
 
-criterion_group!(kyber, criterion_benchmark);
+criterion_group! {
+    name = kyber;
+    config = Criterion::default().measurement_time(std::time::Duration::from_secs(300));
+    targets = criterion_benchmark
+}
 criterion_main!(kyber);
