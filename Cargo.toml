@@ -14,11 +14,10 @@ hkdf = "0.12.4"
 sha2 = "0.10.8"
 kychacha_crypto = "2.0.2"
 serde_bytes = "0.11.17"
-criterion-perf-events = "0.4.0"
-perfcnt = "0.8.0"
+kyberlib = "0.0.6"
 
 [dev-dependencies]
-criterion = { version = "2.10.1", package = "codspeed-criterion-compat", features = ["csv_output", "html_reports"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
 name = "kyber_bench"

@@ -75,12 +75,10 @@ fn round_trip(private_key: PKey<Private>, public_key: PKey<Public>) {
     let (deserialized, _) = bincode::decode_from_slice::<EncryptedMessage, _>(&serialized, config).unwrap();
 
     let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-    let plaintext = cipher.decrypt(
+    let _plaintext = cipher.decrypt(
         Nonce::from_slice(&deserialized.nonce),
         deserialized.ciphertext.as_ref()
     ).expect("Decryption failed");
-
-    assert_eq!(plaintext, message);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

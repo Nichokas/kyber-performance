@@ -417,6 +417,7 @@ dependencies = [
  "codspeed-criterion-compat",
  "criterion-perf-events",
  "hkdf",
+ "kyberlib",
  "kychacha_crypto",
  "openssl",
  "perfcnt",
