@@ -2,51 +2,54 @@ name: Benchmarks & Release
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
   pull_request:
   workflow_dispatch:
 
 jobs:
   perf_and_release:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Instalar herramientas de profiling
+      - name: Instalar perf y dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y linux-tools-common linux-tools-generic perf
+          sudo apt-get install -y \
+            linux-tools-common \
+            linux-tools-generic \
+            linux-tools-$(uname -r)
 
-      - name: Instalar Perl FlameGraph
+      - name: Clonar FlameGraph
         run: |
           git clone https://github.com/brendangregg/FlameGraph.git
           chmod +x FlameGraph/stackcollapse-perf.pl
 
-      - name: Build de benchmarks
+      - name: Compilar benchmarks
         run: cargo build --release
 
       - name: Ejecutar benchmarks bajo perf
         run: |
-          perf record -F 99 -g -- \
+          /usr/lib/linux-tools-$(uname -r)/perf record -F 99 -g -- \
             target/release/benchmarks_binary --bench
-          perf script > perf.out
+          /usr/lib/linux-tools-$(uname -r)/perf script > perf.out
 
-      - name: Generar folded stacks
+      - name: Generar stacks “folded”
         run: |
           ./FlameGraph/stackcollapse-perf.pl perf.out > perf.folded
 
-      - name: Crear Release en GitHub
+      - name: Crear GitHub Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: bench-${{ github.run_number }}
-          release_name: Benchmarks run #${{ github.run_number }}
+          release_name: Benchmarks #${{ github.run_number }}
           draft: false
-          prerelease: false :contentReference[oaicite:2]{index=2}
+          prerelease: false
 
       - name: Subir perf.folded como asset
         uses: actions/upload-release-asset@v1
@@ -56,4 +59,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: perf.folded
           asset_name: perf.folded
-          asset_content_type: text/plain :contentReference[oaicite:3]{index=3}
+          asset_content_type: text/plain
