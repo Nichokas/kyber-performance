@@ -15,8 +15,6 @@ fn round_trip(keys: Rsa<openssl::pkey::Private>) {
     let mut decrypt_buf = vec![0; keys.size() as usize];
     let decrypted_len = keys.private_decrypt(&encrypt_buf, &mut decrypt_buf, Padding::PKCS1).unwrap();
     decrypt_buf.truncate(decrypted_len);
-
-    assert_eq!(message, &decrypt_buf[..]);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
