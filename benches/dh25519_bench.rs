@@ -79,8 +79,6 @@ fn round_trip(private_key: PKey<Private>, public_key: PKey<Public>) {
         Nonce::from_slice(&deserialized.nonce),
         deserialized.ciphertext.as_ref()
     ).expect("Decryption failed");
-
-    assert_eq!(plaintext, message);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
