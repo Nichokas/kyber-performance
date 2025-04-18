@@ -17,7 +17,7 @@ serde_bytes = "0.11.17"
 kyberlib = "0.0.6"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "2.10.1", features = ["csv_output", "html_reports"], package = "codspeed-criterion-compat" }
 
 [[bench]]
 name = "kyber_bench"
