@@ -41,8 +41,8 @@ fn main() {
 
     // kyber (with authentication and nonce)
     {
-    let server_kp=generate_keypair().unwrap();
-    let encrypted_data: Vec<u8> = encrypt(&server_kp.public, message).unwrap();
+    let server_kp=generate_keypair();
+    let encrypted_data: Vec<u8> = encrypt(server_kp.public_key, message).unwrap();
     println!("Kyber (with authentication and nonce) len: {:?}", encrypted_data.len());
     }
 

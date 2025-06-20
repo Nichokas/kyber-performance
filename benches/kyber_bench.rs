@@ -1,27 +1,34 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kychacha_crypto::{decrypt, encrypt, generate_keypair, Keypair};
+use iai::black_box;
+use kychacha_crypto::{decrypt, encrypt, generate_keypair};
 
-fn round_trip(server_kp:Keypair){
+/// Mide únicamente la generación del par de claves de Kyber.
+fn bench_kyber_key_generation() {
+    black_box(generate_keypair());
+}
+
+/// Mide la encapsulación: usa una clave pública para generar un secreto compartido y un ciphertext.
+fn bench_kyber_encapsulate() {
+    let server_kp = generate_keypair();
     let message = b"Secret message";
-    let encrypted_data: Vec<u8> = encrypt(&server_kp.public, message).unwrap();
-    let _decrypted_message = decrypt(&encrypted_data, &server_kp).unwrap();
+    // Medimos solo la función `encrypt`
+    black_box(encrypt(black_box(server_kp.public_key), black_box(message)));
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    let server_kp = generate_keypair().unwrap();
-
-    c.bench_function("Generate kyber keypair", |b| b.iter(generate_keypair));
-    c.bench_function("Kyber Encryption and Decryption (also key exchange and serializations(bincode))", |b| b.iter(|| round_trip(black_box(server_kp))));
+/// Mide la desencapsulación: usa una clave privada para recuperar el secreto compartido.
+fn bench_kyber_decapsulate() {
+    let server_kp = generate_keypair();
+    let message = b"Secret message";
+    // Preparamos los datos cifrados fuera de la medición principal
+    let encrypted_data: Vec<u8> = encrypt(server_kp.public_key, message).unwrap();
+    // Medimos solo la función `decrypt`
+    black_box(decrypt(
+        black_box(&encrypted_data),
+        black_box(&server_kp.private_key),
+    ));
 }
 
-criterion_group! {
-    name = kyber;
-    config = Criterion::default()
-        .sample_size(1000)
-        .warm_up_time(std::time::Duration::from_secs(5))
-        .measurement_time(std::time::Duration::from_secs(30))
-        .confidence_level(0.99)
-        .with_plots();
-    targets = criterion_benchmark
-}
-criterion_main!(kyber);
+iai::main!(
+    bench_kyber_key_generation,
+    bench_kyber_encapsulate,
+    bench_kyber_decapsulate,
+);
