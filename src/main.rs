@@ -22,6 +22,28 @@ struct ECCEncryptedMessage {
     ciphertext: Vec<u8>,
 }
 
+#[derive(Encode, Decode, Debug)]
+struct RSAEncryptedMessage {
+    #[bincode(with_serde)]
+    encrypted_key: Vec<u8>,
+    #[bincode(with_serde)]
+    nonce: Vec<u8>,
+    #[bincode(with_serde)]
+    ciphertext: Vec<u8>,
+}
+
+fn rsa_derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
+    // Derive key using HKDF with SHA-256
+    let salt = b"RSA-ChaCha20Poly1305";
+    let info = b"key derivation for RSA-ChaCha20Poly1305";
+
+    let hk = Hkdf::<Sha256>::new(Some(salt), shared_secret);
+    let mut chacha_key = [0u8; 32];
+    hk.expand(info, &mut chacha_key).expect("HKDF expansion failed");
+
+    chacha_key
+}
+
 fn ecc_derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
     // Derivar clave usando HKDF con SHA-256
     let salt = b"SECP384R1-ChaCha20Poly1305";
@@ -82,13 +104,45 @@ fn main() {
     }
 
     // RSA
+    // RSA with key transport and symmetric encryption
     {
+        // Generate RSA key pair (assuming this represents the recipient's keys)
         let rsa = openssl::rsa::Rsa::generate(7680).unwrap();
 
-        let mut encrypt_buf = vec![0; rsa.size() as usize];
-        let encrypted_len = rsa.public_encrypt(message, &mut encrypt_buf, openssl::rsa::Padding::PKCS1).unwrap();
-        encrypt_buf.truncate(encrypted_len);
+        // Generate a random key to use as our shared secret
+        let mut random_key = [0u8; 32];
+        OsRng.fill(&mut random_key);
 
-        println!("RSA len: {:?}", encrypt_buf.len());
+        // Encrypt the random key with recipient's public key
+        let mut encrypted_key = vec![0; rsa.size() as usize];
+        let encrypted_key_len = rsa.public_encrypt(&random_key, &mut encrypted_key, openssl::rsa::Padding::PKCS1).unwrap();
+        encrypted_key.truncate(encrypted_key_len);
+
+        // Derive a symmetric encryption key from the random key
+        let chacha_key = rsa_derive_chacha_key(&random_key);
+
+        // Set up symmetric encryption
+        let mut nonce_bytes = [0u8; 12];
+        OsRng.fill(&mut nonce_bytes);
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
+        let ciphertext = cipher.encrypt(nonce, message.as_ref())
+            .expect("Encryption failed");
+
+        // Create message container
+        let encrypted_msg = RSAEncryptedMessage {
+            encrypted_key,
+            nonce: nonce_bytes.to_vec(),
+            ciphertext,
+        };
+
+        // Serialize
+        let config = config::standard()
+            .with_big_endian()
+            .with_variable_int_encoding();
+
+        let serialized = encode_to_vec(&encrypted_msg, config).unwrap();
+        println!("RSA (with key transport and symmetric encryption) len: {:?}", serialized.len());
     }
 }

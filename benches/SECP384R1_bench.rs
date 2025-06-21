@@ -6,7 +6,7 @@ use chacha20poly1305::{aead::{KeyInit, Aead}, ChaCha20Poly1305, Nonce, Key};
 use rand::{Rng, rngs::OsRng};
 use sha2::Sha256;
 use hkdf::Hkdf;
-use iai::black_box;
+use iai_callgrind::{black_box, library_benchmark, library_benchmark_group, main};
 
 // La función auxiliar para derivar la clave simétrica se mantiene igual
 fn derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
@@ -18,13 +18,14 @@ fn derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
     chacha_key
 }
 
-/// Mide únicamente la generación del par de claves ECC (SECP384R1).
+// Mide únicamente la generación del par de claves ECC (SECP384R1).
+#[library_benchmark]
 fn bench_ecc_key_generation() {
     let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
     black_box(EcKey::generate(&group).unwrap());
 }
 
-/// Mide la derivación del secreto compartido (el núcleo de ECDH).
+#[library_benchmark]
 fn bench_ecc_shared_secret_derivation() {
     // Preparamos las claves de las dos partes
     let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
@@ -38,7 +39,7 @@ fn bench_ecc_shared_secret_derivation() {
     black_box(deriver.derive_to_vec().unwrap());
 }
 
-/// Mide el cifrado simétrico con ChaCha20Poly1305, usando una clave previamente derivada.
+#[library_benchmark]
 fn bench_ecc_symmetric_encrypt() {
     let chacha_key = [0u8; 32]; // Usamos una clave dummy, ya que no medimos la derivación aquí
     let message = b"Secret message";
@@ -51,7 +52,7 @@ fn bench_ecc_symmetric_encrypt() {
     black_box(cipher.encrypt(black_box(nonce), black_box(message.as_ref())).expect("Encryption failed"));
 }
 
-/// Mide el descifrado simétrico con ChaCha20Poly1305.
+#[library_benchmark]
 fn bench_ecc_symmetric_decrypt() {
     let chacha_key = [0u8; 32];
     let message = b"Secret message";
@@ -66,9 +67,10 @@ fn bench_ecc_symmetric_decrypt() {
     black_box(cipher.decrypt(black_box(nonce), black_box(ciphertext.as_ref())).expect("Decryption failed"));
 }
 
-iai::main!(
-    bench_ecc_key_generation,
-    bench_ecc_shared_secret_derivation,
-    bench_ecc_symmetric_encrypt,
-    bench_ecc_symmetric_decrypt,
+
+library_benchmark_group!(
+    name = ecc_benchmarks_group;
+    benchmarks = bench_ecc_symmetric_decrypt, bench_ecc_symmetric_encrypt, bench_ecc_shared_secret_derivation, bench_ecc_key_generation
 );
+
+main!(library_benchmark_groups = ecc_benchmarks_group);
