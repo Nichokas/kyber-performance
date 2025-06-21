@@ -1,40 +1,87 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use openssl::rsa::{Rsa, Padding};
+use chacha20poly1305::{aead::{KeyInit, Aead}, ChaCha20Poly1305, Nonce, Key};
+use rand::{Rng, rngs::OsRng};
+use sha2::Sha256;
+use hkdf::Hkdf;
+use iai_callgrind::{black_box, library_benchmark, library_benchmark_group, main};
 
-fn generate_keypair() {
-    let _rsa = Rsa::generate(7680).unwrap();
+fn rsa_derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
+    let salt = b"RSA-ChaCha20Poly1305";
+    let info = b"key derivation for RSA-ChaCha20Poly1305";
+    let hk = Hkdf::<Sha256>::new(Some(salt), shared_secret);
+    let mut chacha_key = [0u8; 32];
+    hk.expand(info, &mut chacha_key).expect("HKDF expansion failed");
+    chacha_key
 }
 
-fn round_trip(keys: Rsa<openssl::pkey::Private>) {
-    let message = b"Secret message";
+#[library_benchmark]
+fn bench_rsa_key_generation() {
+    black_box(Rsa::generate(7680).unwrap());
+}
+
+#[library_benchmark]
+fn bench_rsa_key_transport() {
+    let keys = Rsa::generate(7680).unwrap();
+    let mut random_key = [0u8; 32];
+    OsRng.fill(&mut random_key);
+    let mut encrypt_buf = vec![0; keys.size() as usize];
+
+    black_box(keys.public_encrypt(
+        black_box(&random_key),
+        &mut encrypt_buf,
+        Padding::PKCS1
+    ).unwrap());
+}
+
+#[library_benchmark]
+fn bench_rsa_key_recovery() {
+    let keys = Rsa::generate(7680).unwrap();
+    let mut random_key = [0u8; 32];
+    OsRng.fill(&mut random_key);
 
     let mut encrypt_buf = vec![0; keys.size() as usize];
-    let encrypted_len = keys.public_encrypt(message, &mut encrypt_buf, Padding::PKCS1).unwrap();
+    let encrypted_len = keys.public_encrypt(&random_key, &mut encrypt_buf, Padding::PKCS1).unwrap();
     encrypt_buf.truncate(encrypted_len);
 
     let mut decrypt_buf = vec![0; keys.size() as usize];
-    let decrypted_len = keys.private_decrypt(&encrypt_buf, &mut decrypt_buf, Padding::PKCS1).unwrap();
-    decrypt_buf.truncate(decrypted_len);
+
+    black_box(keys.private_decrypt(
+        black_box(&encrypt_buf),
+        &mut decrypt_buf,
+        Padding::PKCS1
+    ).unwrap());
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
+#[library_benchmark]
+fn bench_rsa_symmetric_encrypt() {
+    let chacha_key = [0u8; 32];
+    let message = b"Secret message";
+    let mut nonce_bytes = [0u8; 12];
+    OsRng.fill(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
 
-    c.bench_function("Generate RSA keypair", |b| b.iter(generate_keypair));
-
-    let rsa = Rsa::generate(7680).unwrap();
-    c.bench_function("RSA Encryption and Decryption", |b| {
-        b.iter(|| round_trip(black_box(rsa.clone())))
-    });
+    black_box(cipher.encrypt(black_box(nonce), black_box(message.as_ref())).expect("Encryption failed"));
 }
 
-criterion_group! {
-    name = rsa;
-    config = Criterion::default()
-        .sample_size(1000)
-        .warm_up_time(std::time::Duration::from_secs(5))
-        .measurement_time(std::time::Duration::from_secs(30))
-        .confidence_level(0.99)
-        .with_plots();
-    targets = criterion_benchmark
+#[library_benchmark]
+fn bench_rsa_symmetric_decrypt() {
+    let chacha_key = [0u8; 32];
+    let message = b"Secret message";
+    let mut nonce_bytes = [0u8; 12];
+    OsRng.fill(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
+
+    let ciphertext = cipher.encrypt(nonce, message.as_ref()).unwrap();
+
+    black_box(cipher.decrypt(black_box(nonce), black_box(ciphertext.as_ref())).expect("Decryption failed"));
 }
-criterion_main!(rsa);
+
+library_benchmark_group!(
+    name = rsa_benchmarks_group;
+    benchmarks = bench_rsa_key_generation, bench_rsa_key_transport, bench_rsa_key_recovery,
+                bench_rsa_symmetric_encrypt, bench_rsa_symmetric_decrypt
+);
+
+main!(library_benchmark_groups = rsa_benchmarks_group);

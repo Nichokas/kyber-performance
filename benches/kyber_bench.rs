@@ -1,27 +1,32 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kychacha_crypto::{decrypt, encrypt, generate_keypair, Keypair};
+use iai_callgrind::{black_box, library_benchmark, library_benchmark_group, main};
+use kychacha_crypto::{decrypt, encrypt, generate_keypair};
 
-fn round_trip(server_kp:Keypair){
+#[library_benchmark]
+fn bench_kyber_key_generation() {
+    black_box(generate_keypair());
+}
+
+#[library_benchmark]
+fn bench_kyber_encapsulate() {
+    let server_kp = generate_keypair();
     let message = b"Secret message";
-    let encrypted_data: Vec<u8> = encrypt(&server_kp.public, message).unwrap();
-    let _decrypted_message = decrypt(&encrypted_data, &server_kp).unwrap();
+    black_box(encrypt(black_box(server_kp.public_key), black_box(message)));
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    let server_kp = generate_keypair().unwrap();
-
-    c.bench_function("Generate kyber keypair", |b| b.iter(generate_keypair));
-    c.bench_function("Kyber Encryption and Decryption (also key exchange and serializations(bincode))", |b| b.iter(|| round_trip(black_box(server_kp))));
+#[library_benchmark]
+fn bench_kyber_decapsulate() {
+    let server_kp = generate_keypair();
+    let message = b"Secret message";
+    let encrypted_data: Vec<u8> = encrypt(server_kp.public_key, message).unwrap();
+    black_box(decrypt(
+        black_box(&encrypted_data),
+        black_box(&server_kp.private_key),
+    ));
 }
 
-criterion_group! {
-    name = kyber;
-    config = Criterion::default()
-        .sample_size(1000)
-        .warm_up_time(std::time::Duration::from_secs(5))
-        .measurement_time(std::time::Duration::from_secs(30))
-        .confidence_level(0.99)
-        .with_plots();
-    targets = criterion_benchmark
-}
-criterion_main!(kyber);
+library_benchmark_group!(
+    name = kyber_benchmarks_group;
+    benchmarks = bench_kyber_key_generation, bench_kyber_encapsulate, bench_kyber_decapsulate
+);
+
+main!(library_benchmark_groups = kyber_benchmarks_group);

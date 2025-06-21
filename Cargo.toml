@@ -12,10 +12,9 @@ bincode = { version = "2.0.1", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 hkdf = "0.12.4"
 sha2 = "0.10.8"
-kychacha_crypto = "2.0.2"
+kychacha_crypto = "4"
 serde_bytes = "0.11.17"
-kyberlib = "0.0.6"
-criterion = { version = "0.5.1", features = ["csv", "csv_output", "html_reports"] }
+iai-callgrind = "0.14.2"
 
 [dev-dependencies]
 
@@ -29,5 +28,5 @@ name = "rsa_bench"
 harness = false
 
 [[bench]]
-name = "dh25519_bench"
+name = "SECP384R1_bench"
 harness = false
