@@ -203,16 +203,14 @@ dependencies = [
 name = "crypto_testing"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bincode 2.0.1",
  "chacha20poly1305",
  "hkdf",
  "iai-callgrind",
  "kychacha_crypto",
  "openssl",
+ "oqs",
  "rand",
- "serde",
- "serde_bytes",
  "sha2",
 ]
 

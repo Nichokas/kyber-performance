@@ -20,68 +20,36 @@ fn bench_rsa_key_generation() {
 }
 
 #[library_benchmark]
-fn bench_rsa_key_transport() {
-    let keys = Rsa::generate(7680).unwrap();
+fn bench_rsa_key_transport_encrypt() {
     let mut random_key = [0u8; 32];
     OsRng.fill(&mut random_key);
-    let mut encrypt_buf = vec![0; keys.size() as usize];
 
-    black_box(keys.public_encrypt(
-        black_box(&random_key),
-        &mut encrypt_buf,
-        Padding::PKCS1
-    ).unwrap());
+    // Derivamos la clave simétrica
+    black_box(rsa_derive_chacha_key(&random_key));
 }
 
 #[library_benchmark]
-fn bench_rsa_key_recovery() {
-    let keys = Rsa::generate(7680).unwrap();
+fn bench_rsa_key_transport_decrypt() {
+    let key = Rsa::generate(7680).unwrap();
     let mut random_key = [0u8; 32];
     OsRng.fill(&mut random_key);
+    let mut encrypt_buf = vec![0; key.size() as usize];
+    let encrypted_len = key.public_encrypt(&random_key, &mut encrypt_buf, Padding::PKCS1).unwrap();
 
-    let mut encrypt_buf = vec![0; keys.size() as usize];
-    let encrypted_len = keys.public_encrypt(&random_key, &mut encrypt_buf, Padding::PKCS1).unwrap();
-    encrypt_buf.truncate(encrypted_len);
-
-    let mut decrypt_buf = vec![0; keys.size() as usize];
-
-    black_box(keys.private_decrypt(
-        black_box(&encrypt_buf),
+    let mut decrypt_buf = vec![0; key.size() as usize];
+    let decrypted_len = key.private_decrypt(
+        &encrypt_buf[..encrypted_len],
         &mut decrypt_buf,
         Padding::PKCS1
-    ).unwrap());
-}
+    ).unwrap();
 
-#[library_benchmark]
-fn bench_rsa_symmetric_encrypt() {
-    let chacha_key = [0u8; 32];
-    let message = b"Secret message";
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-
-    black_box(cipher.encrypt(black_box(nonce), black_box(message.as_ref())).expect("Encryption failed"));
-}
-
-#[library_benchmark]
-fn bench_rsa_symmetric_decrypt() {
-    let chacha_key = [0u8; 32];
-    let message = b"Secret message";
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-
-    let ciphertext = cipher.encrypt(nonce, message.as_ref()).unwrap();
-
-    black_box(cipher.decrypt(black_box(nonce), black_box(ciphertext.as_ref())).expect("Decryption failed"));
+    // Derivamos la clave simétrica
+    black_box(rsa_derive_chacha_key(&decrypt_buf[..decrypted_len]));
 }
 
 library_benchmark_group!(
     name = rsa_benchmarks_group;
-    benchmarks = bench_rsa_key_generation, bench_rsa_key_transport, bench_rsa_key_recovery,
-                bench_rsa_symmetric_encrypt, bench_rsa_symmetric_decrypt
+    benchmarks = bench_rsa_key_generation, bench_rsa_key_transport_encrypt, bench_rsa_key_transport_decrypt
 );
 
 main!(library_benchmark_groups = rsa_benchmarks_group);

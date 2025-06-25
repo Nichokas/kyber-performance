@@ -18,7 +18,6 @@ fn derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
     chacha_key
 }
 
-// Mide únicamente la generación del par de claves ECC (SECP384R1).
 #[library_benchmark]
 fn bench_ecc_key_generation() {
     let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
@@ -27,50 +26,25 @@ fn bench_ecc_key_generation() {
 
 #[library_benchmark]
 fn bench_ecc_shared_secret_derivation() {
-    // Preparamos las claves de las dos partes
     let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
-    let private_key_a = PKey::from_ec_key(EcKey::generate(&group).unwrap()).unwrap();
-    let public_key_b = PKey::from_ec_key(EcKey::generate(&group).unwrap().public_key_to_pem().and_then(|pem| EcKey::public_key_from_pem(&pem)).unwrap()).unwrap();
+    let private_key_a = EcKey::generate(&group).unwrap();
+    let public_key_b = EcKey::generate(&group).unwrap();
 
-    let mut deriver = Deriver::new(&private_key_a).unwrap();
-    deriver.set_peer(&public_key_b).unwrap();
+    let private_pkey = PKey::from_ec_key(private_key_a).unwrap();
+    let public_pkey = PKey::from_ec_key(public_key_b).unwrap();
 
-    // Medimos solo la función `derive_to_vec`
-    black_box(deriver.derive_to_vec().unwrap());
-}
+    let mut deriver = Deriver::new(&private_pkey).unwrap();
+    deriver.set_peer(&public_pkey).unwrap();
+    let shared_secret = deriver.derive_to_vec().unwrap();
 
-#[library_benchmark]
-fn bench_ecc_symmetric_encrypt() {
-    let chacha_key = [0u8; 32]; // Usamos una clave dummy, ya que no medimos la derivación aquí
-    let message = b"Secret message";
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-
-    // Medimos solo la función `encrypt`
-    black_box(cipher.encrypt(black_box(nonce), black_box(message.as_ref())).expect("Encryption failed"));
-}
-
-#[library_benchmark]
-fn bench_ecc_symmetric_decrypt() {
-    let chacha_key = [0u8; 32];
-    let message = b"Secret message";
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-    // Preparamos el ciphertext
-    let ciphertext = cipher.encrypt(nonce, message.as_ref()).unwrap();
-
-    // Medimos solo la función `decrypt`
-    black_box(cipher.decrypt(black_box(nonce), black_box(ciphertext.as_ref())).expect("Decryption failed"));
+    // Incluimos la derivación de la clave simétrica
+    black_box(derive_chacha_key(&shared_secret));
 }
 
 
 library_benchmark_group!(
     name = ecc_benchmarks_group;
-    benchmarks = bench_ecc_symmetric_decrypt, bench_ecc_symmetric_encrypt, bench_ecc_shared_secret_derivation, bench_ecc_key_generation
+    benchmarks = bench_ecc_shared_secret_derivation, bench_ecc_key_generation
 );
 
 main!(library_benchmark_groups = ecc_benchmarks_group);
