@@ -57,7 +57,7 @@ fn ecc_derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
 }
 
 fn main() {
-    let message = b"Secret message";
+    let message = b"sas";
     println!("message len: {:?}", message.len());
 
 
