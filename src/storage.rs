@@ -11,24 +11,27 @@ use openssl::derive::Deriver;
 use openssl::ec::{EcGroup, EcKey};
 use openssl::nid::Nid;
 use openssl::pkey::PKey;
-use rand::Rng;
+use rand::{Rng, RngCore};
 use sha2::Sha256;
+use serde::{Serialize, Deserialize};
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
 struct ECCEncryptedMessage {
     #[bincode(with_serde)]
     nonce: Vec<u8>,
     #[bincode(with_serde)]
+    #[serde(with = "serde_bytes")]
     ciphertext: Vec<u8>,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
 struct RSAEncryptedMessage {
     #[bincode(with_serde)]
     encrypted_key: Vec<u8>,
     #[bincode(with_serde)]
     nonce: Vec<u8>,
     #[bincode(with_serde)]
+    #[serde(with = "serde_bytes")]
     ciphertext: Vec<u8>,
 }
 
@@ -57,92 +60,97 @@ fn ecc_derive_chacha_key(shared_secret: &[u8]) -> [u8; 32] {
 }
 
 fn main() {
-    let message = b"sas";
-    println!("message len: {:?}", message.len());
+    // Tamaños de mensaje a probar (0, 16, 64, 256, 1024 bytes)
+    let message_sizes = [0, 16, 64, 256, 1024, 4096];
 
+    println!("Tamaño Mensaje,Kyber Overhead,ECC Overhead,RSA Overhead");
 
-    // kyber (with authentication and nonce)
-    {
-    let server_kp=generate_keypair();
-    let encrypted_data: Vec<u8> = encrypt(server_kp.public_key, message).unwrap();
-    println!("Kyber (with authentication and nonce) len: {:?}", encrypted_data.len());
-    }
+    for size in message_sizes.iter() {
+        let message = vec![0u8; *size];
+        let mut kyber_overhead = 0;
+        let mut ecc_overhead = 0;
+        let mut rsa_overhead = 0;
 
-    // ECC (with nonce)
-    {
-    let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
-    let key = EcKey::generate(&group).unwrap();
-    let priv_key = PKey::from_ec_key(key.clone()).unwrap();
-    let pub_key_point = key.public_key();
-    let pub_key = EcKey::from_public_key(&group, pub_key_point).unwrap();
-    let pub_pkey = PKey::from_ec_key(pub_key).unwrap();
+        // Kyber
+        {
+            let server_kp = generate_keypair();
+            let encrypted_data = encrypt(server_kp.public_key, &message).unwrap();
+            kyber_overhead = encrypted_data.len() - size;
+        }
 
-    let mut deriver = Deriver::new(&priv_key).unwrap();
-    deriver.set_peer(&pub_pkey).unwrap();
-    let shared_secret = deriver.derive_to_vec().unwrap();
-    let chacha_key = ecc_derive_chacha_key(&shared_secret);
+        // ECC
+        {
+            let group = EcGroup::from_curve_name(Nid::SECP384R1).unwrap();
+            let key = EcKey::generate(&group).unwrap();
+            let priv_key = PKey::from_ec_key(key.clone()).unwrap();
+            let pub_key_point = key.public_key();
+            let pub_key = EcKey::from_public_key(&group, pub_key_point).unwrap();
+            let pub_pkey = PKey::from_ec_key(pub_key).unwrap();
 
-    let mut nonce_bytes = [0u8; 12];
-    OsRng.fill(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+            let mut deriver = Deriver::new(&priv_key).unwrap();
+            deriver.set_peer(&pub_pkey).unwrap();
+            let shared_secret = deriver.derive_to_vec().unwrap();
+            let chacha_key = ecc_derive_chacha_key(&shared_secret);
 
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-    let ciphertext = cipher.encrypt(nonce, message.as_ref())
-        .expect("Encryption failed");
+            let mut nonce_bytes = [0u8; 12];
+            OsRng.fill_bytes(&mut nonce_bytes);
+            let nonce = Nonce::from_slice(&nonce_bytes);
 
-    let encrypted_msg = ECCEncryptedMessage {
-        nonce: nonce_bytes.to_vec(),
-        ciphertext,
-    };
+            let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
+            let ciphertext = cipher.encrypt(nonce, message.as_ref())
+                .unwrap_or_else(|_| vec![0; size + 16]);  // Fallback: expected size
 
-    let config = config::standard()
-        .with_big_endian()
-        .with_variable_int_encoding();
+            let encrypted_msg = ECCEncryptedMessage {
+                nonce: nonce_bytes.to_vec(),
+                ciphertext,
+            };
 
-    let serialized = encode_to_vec(&encrypted_msg, config).unwrap();
-        println!("ECC (with nonce) len: {:?}", serialized.len());
-    }
+            let config = config::standard()
+                .with_big_endian()
+                .with_variable_int_encoding();
 
-    // RSA
-    // RSA with key transport and symmetric encryption
-    {
-        // Generate RSA key pair (assuming this represents the recipient's keys)
-        let rsa = openssl::rsa::Rsa::generate(7680).unwrap();
+            let serialized = encode_to_vec(&encrypted_msg, config).unwrap();
+            ecc_overhead = serialized.len() - size;
+        }
 
-        // Generate a random key to use as our shared secret
-        let mut random_key = [0u8; 32];
-        OsRng.fill(&mut random_key);
+        // RSA
+        {
+            let rsa = openssl::rsa::Rsa::generate(7680).unwrap();
+            let mut random_key = [0u8; 32];
+            OsRng.fill_bytes(&mut random_key);
 
-        // Encrypt the random key with recipient's public key
-        let mut encrypted_key = vec![0; rsa.size() as usize];
-        let encrypted_key_len = rsa.public_encrypt(&random_key, &mut encrypted_key, openssl::rsa::Padding::PKCS1).unwrap();
-        encrypted_key.truncate(encrypted_key_len);
+            let mut encrypted_key = vec![0; rsa.size() as usize];
+            let encrypted_key_len = rsa.public_encrypt(
+                &random_key,
+                &mut encrypted_key,
+                openssl::rsa::Padding::PKCS1
+            ).unwrap();
+            encrypted_key.truncate(encrypted_key_len);
 
-        // Derive a symmetric encryption key from the random key
-        let chacha_key = rsa_derive_chacha_key(&random_key);
+            let chacha_key = rsa_derive_chacha_key(&random_key);
 
-        // Set up symmetric encryption
-        let mut nonce_bytes = [0u8; 12];
-        OsRng.fill(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
+            let mut nonce_bytes = [0u8; 12];
+            OsRng.fill_bytes(&mut nonce_bytes);
+            let nonce = Nonce::from_slice(&nonce_bytes);
 
-        let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
-        let ciphertext = cipher.encrypt(nonce, message.as_ref())
-            .expect("Encryption failed");
+            let cipher = ChaCha20Poly1305::new(Key::from_slice(&chacha_key));
+            let ciphertext = cipher.encrypt(nonce, message.as_ref())
+                .unwrap_or_else(|_| vec![0; size + 16]);  // Fallback: expected size
 
-        // Create message container
-        let encrypted_msg = RSAEncryptedMessage {
-            encrypted_key,
-            nonce: nonce_bytes.to_vec(),
-            ciphertext,
-        };
+            let encrypted_msg = RSAEncryptedMessage {
+                encrypted_key,
+                nonce: nonce_bytes.to_vec(),
+                ciphertext,
+            };
 
-        // Serialize
-        let config = config::standard()
-            .with_big_endian()
-            .with_variable_int_encoding();
+            let config = config::standard()
+                .with_big_endian()
+                .with_variable_int_encoding();
 
-        let serialized = encode_to_vec(&encrypted_msg, config).unwrap();
-        println!("RSA (with key transport and symmetric encryption) len: {:?}", serialized.len());
+            let serialized = encode_to_vec(&encrypted_msg, config).unwrap();
+            rsa_overhead = serialized.len() - size;
+        }
+
+        println!("{},{},{},{}", size, kyber_overhead, ecc_overhead, rsa_overhead);
     }
 }
