@@ -29,4 +29,4 @@ This command will display the results on your screen.
 ## Study DOI
 For a detailed analysis of the methodology and results, please refer to the full study.
 
-DOI: [Soon...]
+DOI: https://doi.org/10.48550/arXiv.2508.01694
