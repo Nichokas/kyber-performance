@@ -1,5 +1,7 @@
+mod support;
+
 use crypto_testing::{rsa_decrypt_key, rsa_derive_chacha_key, rsa_encrypt_key};
-use gungraun::{LibraryBenchmarkConfig, library_benchmark, library_benchmark_group, main};
+use gungraun::{library_benchmark, library_benchmark_group, main};
 use openssl::pkey::{PKey, Private, Public};
 use openssl::rsa::Rsa;
 use rand::{RngCore, rngs::OsRng};
@@ -59,7 +61,7 @@ fn bench_rsa_key_transport_decrypt(input: (PKey<Private>, Vec<u8>)) {
 
 library_benchmark_group!(
     name = rsa_benchmarks_group;
-    config = LibraryBenchmarkConfig::default().pass_through_env("KYBER_BENCH_RSA_KEY");
+    config = support::callgrind_config().pass_through_env("KYBER_BENCH_RSA_KEY");
     benchmarks = bench_rsa_key_generation, bench_rsa_key_transport_encrypt, bench_rsa_key_transport_decrypt
 );
 

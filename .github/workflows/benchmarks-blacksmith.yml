@@ -8,10 +8,12 @@ permissions:
 
 jobs:
   benchmark:
-    name: ${{ matrix.arch }}
+    name: ${{ matrix.arch }} / shard ${{ matrix.shard }}
     strategy:
       fail-fast: false
       matrix:
+        arch: [x86_64, aarch64]
+        shard: [1, 2]
         include:
           - arch: x86_64
             runner: blacksmith-2vcpu-ubuntu-2404
@@ -24,15 +26,47 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Measure 20 samples per benchmark
+      - name: Measure 10 samples per benchmark
         timeout-minutes: 350
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
+          SAMPLE_START: ${{ matrix.shard == 1 && '1' || '11' }}
+          SAMPLE_COUNT: '10'
         run: python3 .github/scripts/run-benchmarks.py
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmarks-blacksmith-${{ matrix.arch }}-${{ github.run_attempt }}
+          name: benchmarks-blacksmith-${{ matrix.arch }}-shard-${{ matrix.shard }}
+          overwrite: true
           path: target/bench-results/
+
+  summarize:
+    needs: benchmark
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: benchmarks-blacksmith-*-shard-*
+          path: target/shards
+
+      - name: Combine the 20 samples per architecture
+        shell: bash
+        run: |
+          for arch in x86_64 aarch64; do
+            echo "## $arch" >> "$GITHUB_STEP_SUMMARY"
+            python3 .github/scripts/run-benchmarks.py --merge "target/combined/$arch" \
+              "target/shards/benchmarks-blacksmith-$arch-shard-1/samples.csv" \
+              "target/shards/benchmarks-blacksmith-$arch-shard-2/samples.csv"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-blacksmith-combined
+          overwrite: true
+          path: target/combined/

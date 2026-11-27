@@ -1,3 +1,5 @@
+mod support;
+
 use crypto_testing::{ecies_receiver, ecies_sender};
 use gungraun::{library_benchmark, library_benchmark_group, main};
 use openssl::ec::{EcGroup, EcKey};
@@ -49,6 +51,7 @@ fn bench_ecies_receiver(input: (EcGroup, PKey<Private>, Vec<u8>)) {
 
 library_benchmark_group!(
     name = ecc_benchmarks_group;
+    config = support::callgrind_config();
     benchmarks = bench_ecc_key_generation, bench_ecies_sender, bench_ecies_receiver
 );
 

@@ -1,3 +1,5 @@
+mod support;
+
 use crypto_testing::ml_kem_derive_chacha_key;
 use gungraun::{library_benchmark, library_benchmark_group, main};
 use oqs::kem;
@@ -51,6 +53,7 @@ fn bench_kyber_decapsulate(input: (kem::Kem, kem::SecretKey, kem::Ciphertext)) {
 
 library_benchmark_group!(
     name = kyber_benchmarks_group;
+    config = support::callgrind_config();
     benchmarks = bench_kyber_key_generation, bench_kyber_encapsulate, bench_kyber_decapsulate
 );
 

@@ -21,4 +21,4 @@ time cargo bench --locked --bench rsa_bench -- \
 
 ## Run in CI
 
-In **Actions**, run **Benchmarks (Blacksmith)** or **Benchmarks (Depot)**. Each workflow runs on x86_64 and AArch64 with 2 vCPU per runner. Download the artifacts for the samples, summary statistics, and `lscpu` output.
+In **Actions**, run **Benchmarks (Blacksmith)** or **Benchmarks (Depot)**. Each workflow runs two 10-sample shards per architecture (x86_64 and AArch64) on 2-vCPU runners. Download the shard artifacts for CPU detection and observed Callgrind paths and the combined artifact for the 20-sample statistics.
