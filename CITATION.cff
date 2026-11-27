@@ -1,0 +1,9 @@
+cff-version: "1.2.0"
+message: "If you use this software, please cite it."
+title: "kyber-performance"
+type: software
+authors:
+  - given-names: Nicolas
+    family-names: Rodriguez-Alvarez
+    orcid: "https://orcid.org/0009-0002-6804-386X"
+repository-code: "https://github.com/Nichokas/kyber-performance"

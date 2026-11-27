@@ -4,18 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chacha20poly1305 = "0.10.1"
-openssl = { version = "0.10.72", features = ["vendored"] }
-rand = "0.8.5"
-bincode = { version = "2.0.1", features = ["serde"] }
-hkdf = "0.12.4"
-sha2 = "0.10.8"
-kychacha_crypto = "4"
-iai-callgrind = "0.15.1"
-oqs = "0.11.0"
+chacha20poly1305 = "0.11.0"
+openssl = { version = "0.10.82", features = ["vendored"] }
+rand = "0.8.8"
+hkdf = "0.13.0"
+sha2 = "0.11.2"
+oqs = { version = "0.11.0", features = ["vendored_openssl"] }
 
 [dev-dependencies]
-
+gungraun = "0.20.0"
 
 [[bench]]
 name = "kyber_bench"

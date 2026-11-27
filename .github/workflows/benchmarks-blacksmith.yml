@@ -1,0 +1,38 @@
+name: Benchmarks (Blacksmith)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: blacksmith-2vcpu-ubuntu-2404
+          - arch: aarch64
+            runner: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Measure 20 samples per benchmark
+        timeout-minutes: 350
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: python3 .github/scripts/run-benchmarks.py
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-blacksmith-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: target/bench-results/

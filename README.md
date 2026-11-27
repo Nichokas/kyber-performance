@@ -1,32 +1,24 @@
 # Post-Quantum Crypto: A Performance and Overhead Analysis
-This repository contains the source code for a comparative study on the performance and storage overhead of Kyber, RSA, and ECC cryptographic algorithms.
-## Prerequisites
-Ensure you have the following software installed:
-* Rust: Install from rustup.rs.
-* Valgrind: Required for the iai-callgrind benchmarking tool.
-* iai-callgrind-runner: Install the crate iai-callgrind-runner for running the benchmarks:
-  ```bash
-  cargo install iai-callgrind-runner
-  ```
 
-## How to Reproduce the Data
-> [!WARNING]  
-> This command will take a significant amount of time to complete as it runs extensive performance tests. It is expected to take more than two hours.
+Code for the [study](https://doi.org/10.48550/arXiv.2508.01694) comparing ML-KEM-768, RSA-7680, and ECIES over secp384r1.
 
-To measure the computational performance of key generation, encapsulation/encryption, and decapsulation/decryption, run the following command from the project root:
+## Run locally
+
+Install Rust, Valgrind, Clang with libclang, CMake, Perl, and a C toolchain.
+
 ```bash
-cargo bench
+cargo install --locked gungraun-runner --version 0.20.0
+cargo run --release --locked
+cargo bench --locked
 ```
-This will execute all benchmark tests located in the benches/ directory for Kyber, RSA, and ECC.
 
-## Storage Overhead
-To calculate the storage overhead for encrypted messages of various sizes, run this command:
+To time only RSA key generation:
+
 ```bash
-cargo run --release
+time cargo bench --locked --bench rsa_bench -- \
+  'rsa_bench::rsa_benchmarks_group::bench_rsa_key_generation::warm'
 ```
-This command will display the results on your screen.
 
-## Study DOI
-For a detailed analysis of the methodology and results, please refer to the full study.
+## Run in CI
 
-DOI: https://doi.org/10.48550/arXiv.2508.01694
+In **Actions**, run **Benchmarks (Blacksmith)** or **Benchmarks (Depot)**. Each workflow runs on x86_64 and AArch64 with 2 vCPU per runner. Download the artifacts for the samples, summary statistics, and `lscpu` output.
