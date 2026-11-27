@@ -121,13 +121,19 @@ def measure(sample, work_dir, binaries):
             "-pkeyopt", "rsa_keygen_bits:7680", "-outform", "DER", "-out", str(fixture),
             stdout=log, stderr=subprocess.STDOUT,
         )
+        summaries = set()
         for binary in binaries:
-            run(binary, "--save-summary=json", env=env, stdout=log, stderr=subprocess.STDOUT)
+            # Cargo normally adds --bench; these executables run directly to parallelize samples.
+            run(binary, "--bench", "--save-summary=json", env=env, stdout=log, stderr=subprocess.STDOUT)
+            updated = set(output_dir.rglob("summary.json"))
+            if updated == summaries:
+                raise ValueError(f"{binary.name} produced no new summaries; see {log_path}")
+            summaries = updated
 
     metrics = {}
     raw_dir = RESULTS / "gungraun" / f"{sample:02d}"
     raw_dir.mkdir(parents=True)
-    for path in sorted(output_dir.rglob("summary.json")):
+    for path in sorted(summaries):
         summary = json.loads(path.read_text())
         if summary["version"] != "7":
             raise ValueError(f"Unexpected Gungraun summary version in {path}")
